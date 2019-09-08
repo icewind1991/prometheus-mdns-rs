@@ -1,8 +1,11 @@
+use atomicwrites::{AllowOverwrite, AtomicFile};
 use futures::{Future, Stream};
 use maplit::hashmap;
 use mdns::{Record, RecordKind};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::env;
+use std::io::Write;
 use std::sync::mpsc;
 use std::sync::mpsc::Sender;
 use std::thread;
@@ -38,8 +41,14 @@ impl From<&Service> for PrometheusService {
 }
 
 const TIMEOUT: Duration = Duration::from_secs(60);
+const INTERVAL: Duration = Duration::from_secs(15);
 
 fn main() {
+    let out = env::args()
+        .skip(1)
+        .next()
+        .map(|path| AtomicFile::new(path, AllowOverwrite));
+
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
@@ -62,18 +71,25 @@ fn main() {
         let removed_count = services.len();
 
         if start_count != added_count || added_count != removed_count {
-            let output: Vec<PrometheusService> =
+            let output_services: Vec<PrometheusService> =
                 services.iter().map(|(_, service)| service.into()).collect();
-            println!("{}", serde_json::to_string(&output).unwrap());
+            let output = serde_json::to_string(&output_services).unwrap();
+
+            match &out {
+                Some(path) => {
+                    let _ = path.write(|f| f.write_all(output.as_bytes()));
+                }
+                None => println!("{}", output),
+            }
         }
 
-        sleep(Duration::from_secs(15));
+        sleep(INTERVAL);
     }
 }
 
 fn discover(tx: Sender<Service>) {
     tokio::run(
-        mdns::discover::all(SERVICE_NAME, Duration::from_secs(15))
+        mdns::discover::all(SERVICE_NAME, INTERVAL)
             .unwrap()
             .for_each(move |response| {
                 if response
@@ -83,8 +99,6 @@ fn discover(tx: Sender<Service>) {
                     let addr = response.records().filter_map(self::to_ip_addr).next();
                     let port = response.records().filter_map(self::to_port).next();
                     let name = response.records().filter_map(self::to_name).next();
-
-                    dbg!(response);
 
                     if let (Some(addr), Some(name), Some(port)) = (addr, name, port) {
                         let _ = tx.send(Service {
