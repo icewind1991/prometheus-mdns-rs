@@ -1,8 +1,7 @@
 use atomicwrites::{AllowOverwrite, AtomicFile};
 use futures::{Future, Stream};
-use maplit::hashmap;
 use mdns::{Record, RecordKind};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashMap;
 use std::env;
 use std::io::Write;
@@ -17,25 +16,23 @@ use std::{net::IpAddr, time::Duration};
 const SERVICE_NAME: &'static str = "_prometheus-http._tcp.local";
 
 struct Service {
-    name: String,
+    labels: HashMap<String, String>,
     addr: IpAddr,
     port: u16,
     last_seen: Instant,
 }
 
-#[derive(Serialize, Deserialize)]
-struct PrometheusService {
+#[derive(Serialize)]
+struct PrometheusService<'a> {
     targets: Vec<String>,
-    labels: HashMap<String, String>,
+    labels: &'a HashMap<String, String>,
 }
 
-impl From<&Service> for PrometheusService {
-    fn from(service: &Service) -> Self {
+impl<'a> From<&'a Service> for PrometheusService<'a> {
+    fn from(service: &'a Service) -> Self {
         PrometheusService {
             targets: vec![format!("{}:{}", service.addr, service.port)],
-            labels: hashmap! {
-                "name".to_string() => service.name.clone()
-            },
+            labels: &service.labels,
         }
     }
 }
@@ -98,11 +95,11 @@ fn discover(tx: Sender<Service>) {
                 {
                     let addr = response.records().filter_map(self::to_ip_addr).next();
                     let port = response.records().filter_map(self::to_port).next();
-                    let name = response.records().filter_map(self::to_name).next();
+                    let labels = response.records().filter_map(self::to_labels).next();
 
-                    if let (Some(addr), Some(name), Some(port)) = (addr, name, port) {
+                    if let (Some(addr), Some(labels), Some(port)) = (addr, labels, port) {
                         let _ = tx.send(Service {
-                            name,
+                            labels,
                             addr,
                             port,
                             last_seen: Instant::now(),
@@ -131,16 +128,25 @@ fn to_port(record: &Record) -> Option<u16> {
     }
 }
 
-fn to_name(record: &Record) -> Option<String> {
-    if let RecordKind::TXT(txt) = &record.kind {
-        for pair in txt {
-            let mut parts = pair.split('=');
-            if let (Some(key), Some(value)) = (parts.next(), parts.next()) {
-                if key == "name" {
-                    return Some(value.to_string());
-                }
-            }
+fn to_labels(record: &Record) -> Option<HashMap<String, String>> {
+    if record.name.contains(SERVICE_NAME) {
+        if let RecordKind::TXT(txt) = &record.kind {
+            Some(
+                txt.iter()
+                    .flat_map(|pair| {
+                        let mut parts = pair.split('=');
+                        if let (Some(key), Some(value)) = (parts.next(), parts.next()) {
+                            Some((key.to_string(), value.to_string()))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect(),
+            )
+        } else {
+            None
         }
+    } else {
+        None
     }
-    None
 }
