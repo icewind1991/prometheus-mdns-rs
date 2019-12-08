@@ -33,8 +33,8 @@ impl<'a> From<&'a Service> for PrometheusService<'a> {
     }
 }
 
-const TIMEOUT: Duration = Duration::from_secs(60);
-const INTERVAL: Duration = Duration::from_secs(15);
+const TIMEOUT: Duration = Duration::from_secs(360);
+const INTERVAL: Duration = Duration::from_secs(120);
 
 
 #[tokio::main]
