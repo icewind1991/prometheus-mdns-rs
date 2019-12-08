@@ -7,6 +7,7 @@ description = "mDNS service discovery for prometherus"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/icewind1991/prometheus-mdns-rs"
+keywords = ["mdns", "prometheus"]
 
 [dependencies]
 mdns = { version = "0.3", git = "https://github.com/icewind1991/mdns", branch = "async_await" }

@@ -9,7 +9,7 @@ use std::time::Instant;
 use std::{net::IpAddr, time::Duration};
 
 /// The hostname of the devices we are searching for.
-const SERVICE_NAME: &'static str = "_prometheus-http._tcp.local";
+const SERVICE_NAME: &str = "_prometheus-http._tcp.local";
 
 struct Service {
     labels: HashMap<String, String>,
@@ -36,11 +36,11 @@ impl<'a> From<&'a Service> for PrometheusService<'a> {
 const TIMEOUT: Duration = Duration::from_secs(60);
 const INTERVAL: Duration = Duration::from_secs(15);
 
+
 #[tokio::main]
 async fn main() -> Result<(), main_error::MainError> {
     let out = env::args()
-        .skip(1)
-        .next()
+        .nth(1)
         .map(|path| AtomicFile::new(path, AllowOverwrite));
 
     let stream = mdns::discover::all(SERVICE_NAME, INTERVAL)?.listen();
@@ -49,9 +49,9 @@ async fn main() -> Result<(), main_error::MainError> {
     let mut services: HashMap<IpAddr, Service> = HashMap::new();
 
     while let Some(Ok(response)) = stream.next().await {
-        let addr = response.records().filter_map(self::to_ip_addr).next();
-        let port = response.records().filter_map(self::to_port).next();
-        let labels = response.records().filter_map(self::to_labels).next();
+        let addr = response.records().find_map(self::to_ip_addr);
+        let port = response.records().find_map(self::to_port);
+        let labels = response.records().find_map(self::to_labels);
 
         if let (Some(addr), Some(labels), Some(port)) = (addr, labels, port) {
             let service = Service {
