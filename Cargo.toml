@@ -10,7 +10,7 @@ repository = "https://github.com/icewind1991/prometheus-mdns-rs"
 keywords = ["mdns", "prometheus"]
 
 [dependencies]
-mdns = { version = "0.3", git = "https://github.com/icewind1991/mdns", branch = "async_await" }
+mdns = { version = "0.3", git = "https://github.com/dylanmckay/mdns", branch = "master" }
 tokio = { version = "0.2.4", features = ["macros"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
