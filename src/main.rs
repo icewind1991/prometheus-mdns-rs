@@ -36,7 +36,6 @@ impl<'a> From<&'a Service> for PrometheusService<'a> {
 const TIMEOUT: Duration = Duration::from_secs(360);
 const INTERVAL: Duration = Duration::from_secs(120);
 
-
 #[tokio::main]
 async fn main() -> Result<(), main_error::MainError> {
     let out = env::args()
@@ -49,11 +48,15 @@ async fn main() -> Result<(), main_error::MainError> {
     let mut services: HashMap<IpAddr, Service> = HashMap::new();
 
     while let Some(Ok(response)) = stream.next().await {
-        let addr = response.records().find_map(self::to_ip_addr);
-        let port = response.records().find_map(self::to_port);
-        let labels = response.records().find_map(self::to_labels);
+        let addr: Option<IpAddr> = response.records().find_map(self::to_ip_addr);
+        let port: Option<u16> = response.records().find_map(self::to_port);
+        let labels: Option<HashMap<String, String>> = response.records().find_map(self::to_labels);
+        let hostname: Option<String> = response.records().find_map(self::to_hostname);
 
-        if let (Some(addr), Some(labels), Some(port)) = (addr, labels, port) {
+        if let (Some(addr), Some(mut labels), Some(port), Some(hostname)) =
+            (addr, labels, port, hostname)
+        {
+            labels.insert("hostname".to_string(), hostname);
             let service = Service {
                 labels,
                 addr,
@@ -87,6 +90,13 @@ async fn main() -> Result<(), main_error::MainError> {
     }
 
     Ok(())
+}
+
+fn to_hostname(record: &Record) -> Option<String> {
+    match &record.kind {
+        RecordKind::PTR(id) => id.split('.').next().map(|s| s.to_string()),
+        _ => None,
+    }
 }
 
 fn to_ip_addr(record: &Record) -> Option<IpAddr> {
