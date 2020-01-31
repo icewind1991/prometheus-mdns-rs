@@ -1,20 +1,20 @@
 use atomicwrites::{AllowOverwrite, AtomicFile};
 use futures_util::{pin_mut, stream::StreamExt};
-use mdns::{Record, RecordKind};
+use mdns::Response;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::env;
 use std::io::Write;
+use std::net::SocketAddr;
+use std::time::Duration;
 use std::time::Instant;
-use std::{net::IpAddr, time::Duration};
 
 /// The hostname of the devices we are searching for.
 const SERVICE_NAME: &str = "_prometheus-http._tcp.local";
 
 struct Service {
     labels: HashMap<String, String>,
-    addr: IpAddr,
-    port: u16,
+    addr: SocketAddr,
     last_seen: Instant,
 }
 
@@ -27,7 +27,7 @@ struct PrometheusService<'a> {
 impl<'a> From<&'a Service> for PrometheusService<'a> {
     fn from(service: &'a Service) -> Self {
         PrometheusService {
-            targets: vec![format!("{}:{}", service.addr, service.port)],
+            targets: vec![service.addr.to_string()],
             labels: &service.labels,
         }
     }
@@ -45,22 +45,31 @@ async fn main() -> Result<(), main_error::MainError> {
     let stream = mdns::discover::all(SERVICE_NAME, INTERVAL)?.listen();
     pin_mut!(stream);
 
-    let mut services: HashMap<IpAddr, Service> = HashMap::new();
+    let mut services: HashMap<SocketAddr, Service> = HashMap::new();
 
     while let Some(Ok(response)) = stream.next().await {
-        let addr: Option<IpAddr> = response.records().find_map(self::to_ip_addr);
-        let port: Option<u16> = response.records().find_map(self::to_port);
-        let labels: Option<HashMap<String, String>> = response.records().find_map(self::to_labels);
-        let hostname: Option<String> = response.records().find_map(self::to_hostname);
+        let response: Response = response;
+        let addr = response.socket_address();
+        let mut labels: HashMap<String, String> = response
+            .txt_records()
+            .flat_map(|pair| {
+                let mut parts = pair.split('=');
+                if let (Some(key), Some(value)) = (parts.next(), parts.next()) {
+                    Some((key.to_string(), value.to_string()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let hostname = response
+            .hostname()
+            .and_then(|host| host.split('.').next().map(|s| s.to_string()));
 
-        if let (Some(addr), Some(mut labels), Some(port), Some(hostname)) =
-            (addr, labels, port, hostname)
-        {
-            labels.insert("hostname".to_string(), hostname);
+        if let (Some(addr), Some(hostname)) = (addr, hostname) {
+            labels.insert("hostname".to_string(), hostname.to_string());
             let service = Service {
                 labels,
                 addr,
-                port,
                 last_seen: Instant::now(),
             };
 
@@ -90,49 +99,4 @@ async fn main() -> Result<(), main_error::MainError> {
     }
 
     Ok(())
-}
-
-fn to_hostname(record: &Record) -> Option<String> {
-    match &record.kind {
-        RecordKind::PTR(id) => id.split('.').next().map(|s| s.to_string()),
-        _ => None,
-    }
-}
-
-fn to_ip_addr(record: &Record) -> Option<IpAddr> {
-    match record.kind {
-        RecordKind::A(addr) => Some(addr.into()),
-        RecordKind::AAAA(addr) => Some(addr.into()),
-        _ => None,
-    }
-}
-
-fn to_port(record: &Record) -> Option<u16> {
-    match record.kind {
-        RecordKind::SRV { port, .. } if record.name.contains(SERVICE_NAME) => Some(port),
-        _ => None,
-    }
-}
-
-fn to_labels(record: &Record) -> Option<HashMap<String, String>> {
-    if record.name.contains(SERVICE_NAME) {
-        if let RecordKind::TXT(txt) = &record.kind {
-            Some(
-                txt.iter()
-                    .flat_map(|pair| {
-                        let mut parts = pair.split('=');
-                        if let (Some(key), Some(value)) = (parts.next(), parts.next()) {
-                            Some((key.to_string(), value.to_string()))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect(),
-            )
-        } else {
-            None
-        }
-    } else {
-        None
-    }
 }
