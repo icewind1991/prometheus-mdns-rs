@@ -34,9 +34,9 @@ impl<'a> From<&'a Service> for PrometheusService<'a> {
 }
 
 const TIMEOUT: Duration = Duration::from_secs(360);
-const INTERVAL: Duration = Duration::from_secs(120);
+const INTERVAL: Duration = Duration::from_secs(15);
 
-#[tokio::main]
+#[async_std::main]
 async fn main() -> Result<(), main_error::MainError> {
     let out = env::args()
         .nth(1)
