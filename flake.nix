@@ -54,9 +54,9 @@
               pkg = self.defaultPackage.${pkgs.system};
             in {
               wantedBy = ["multi-user.target"];
-              script = "${pkg}/bin/prometheus-mdns-sd-rs ${cfg.target}";
 
               serviceConfig = {
+                ExecStart = "${pkg}/bin/prometheus-mdns-sd-rs ${cfg.target}";
                 Restart = "on-failure";
                 DynamicUser = true;
                 PrivateTmp = true;
@@ -77,7 +77,7 @@
                 ProtectKernelTunables = true;
                 RestrictAddressFamilies = "AF_INET";
                 RestrictRealtime = true;
-                ProtectProc = "noaccess";
+                ProtectProc = "invisible";
                 SystemCallFilter = ["@system-service" "~@resources" "~@privileged"];
                 IPAddressDeny = "any";
                 IPAddressAllow = ["multicast" "192.168.0.0/16"];
