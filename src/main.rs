@@ -68,11 +68,14 @@ async fn main() -> Result<(), main_error::MainError> {
 
         if let (Some(addr), Some(hostname)) = (addr, hostname) {
             labels.insert("hostname".to_string(), hostname.to_string());
+            let addr = SocketAddr::new(addr.ip(), 80);
             let service = Service {
                 labels,
                 addr,
                 last_seen: Instant::now(),
             };
+
+            println!("adding {} {}", hostname, addr);
 
             let start_count = services.len();
             services.insert(service.addr, service);
