@@ -9,9 +9,6 @@ use std::net::SocketAddr;
 use std::time::Duration;
 use std::time::Instant;
 
-/// The hostname of the devices we are searching for.
-const SERVICE_NAME: &str = "_prometheus-http._tcp.local";
-
 struct Service {
     labels: HashMap<String, String>,
     addr: SocketAddr,
@@ -42,7 +39,11 @@ async fn main() -> Result<(), main_error::MainError> {
         .nth(1)
         .map(|path| AtomicFile::new(path, AllowOverwrite));
 
-    let stream = mdns::discover::all(SERVICE_NAME, INTERVAL)?.listen();
+    let service_name: &str = &env::args()
+        .nth(2)
+        .unwrap_or("_prometheus-http._tcp.local".to_string());
+
+    let stream = mdns::discover::all(service_name, INTERVAL)?.listen();
     pin_mut!(stream);
 
     let mut services: HashMap<SocketAddr, Service> = HashMap::new();
