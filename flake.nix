@@ -1,93 +1,46 @@
 {
   inputs = {
+    nixpkgs.url = "nixpkgs/nixos-23.11";
     flake-utils.url = "github:numtide/flake-utils";
-    naersk.url = "github:nix-community/naersk";
   };
 
   outputs = {
     self,
     nixpkgs,
     flake-utils,
-    naersk,
   }:
     flake-utils.lib.eachDefaultSystem (
       system: let
-        pkgs = nixpkgs.legacyPackages."${system}";
-        naersk-lib = naersk.lib."${system}";
-      in rec {
-        # `nix build`
-        packages.prometheus-mdns-sd = naersk-lib.buildPackage {
-          pname = "prometheus-mdns-sd";
-          root = ./.;
+        overlays = [
+          (import ./overlay.nix)
+        ];
+        pkgs = (import nixpkgs) {
+          inherit system overlays;
         };
-        defaultPackage = packages.prometheus-mdns-sd;
-        defaultApp = packages.prometheus-mdns-sd;
+      in rec {
+        packages = rec {
+          prometheus-mdns-sd = pkgs.prometheus-mdns-sd;
+          default = prometheus-mdns-sd;
+        };
 
-        # `nix develop`
         devShell = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [rustc cargo bacon cargo-edit cargo-outdated];
         };
       }
     )
     // {
-      nixosModule = {
+      overlays.default = import ./overlay.nix;
+      nixosModules.default = {
+        pkgs,
         config,
         lib,
-        pkgs,
         ...
-      }:
-        with lib; let
-          cfg = config.services.prometheus-mdns-sd;
-        in {
-          options.services.prometheus-mdns-sd = {
-            enable = mkEnableOption "WiFi prometheus exporter";
-
-            target = mkOption {
-              type = types.str;
-              default = "/run/prometheus-mdns-sd/services.json";
-              description = "json file to write the discovered services to";
-            };
-          };
-
-          config = mkIf cfg.enable {
-            systemd.services."prometheus-mdns-sd" = let
-              pkg = self.defaultPackage.${pkgs.system};
-            in {
-              wantedBy = ["multi-user.target"];
-
-              serviceConfig = {
-                ExecStart = "${pkg}/bin/prometheus-mdns-sd-rs ${cfg.target}";
-                Restart = "on-failure";
-                DynamicUser = true;
-                PrivateTmp = true;
-                ProtectSystem = "strict";
-                ProtectHome = true;
-                NoNewPrivileges = true;
-                PrivateDevices = true;
-                ProtectClock = true;
-                CapabilityBoundingSet = true;
-                ProtectKernelLogs = true;
-                ProtectControlGroups = true;
-                SystemCallArchitectures = "native";
-                ProtectKernelModules = true;
-                RestrictNamespaces = true;
-                MemoryDenyWriteExecute = true;
-                ProtectHostname = true;
-                LockPersonality = true;
-                ProtectKernelTunables = true;
-                RestrictAddressFamilies = "AF_INET";
-                RestrictRealtime = true;
-                ProtectProc = "invisible";
-                SystemCallFilter = ["@system-service" "~@resources" "~@privileged"];
-                IPAddressDeny = "any";
-                IPAddressAllow = ["multicast" "192.168.0.0/16"];
-                PrivateUsers = true;
-                ProcSubset = "pid";
-                RuntimeDirectory = "prometheus-mdns-sd";
-                RestrictSUIDSGID = true;
-              };
-            };
-          };
+      }: {
+        imports = [./module.nix];
+        config = lib.mkIf config.services.prometheus-mdns-sd.enable {
+          nixpkgs.overlays = [self.overlays.default];
+          services.prometheus-mdns-sd.package = lib.mkDefault pkgs.prometheus-mdns-sd;
         };
+      };
     };
 }
