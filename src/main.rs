@@ -85,7 +85,7 @@ async fn main() -> Result<(), main_error::MainError> {
 
             if start_count != added_count || added_count != removed_count {
                 let output_services: Vec<PrometheusService> =
-                    services.iter().map(|(_, service)| service.into()).collect();
+                    services.values().map(|service| service.into()).collect();
                 let output = serde_json::to_string(&output_services).unwrap();
 
                 match &out {
