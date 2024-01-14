@@ -20,6 +20,7 @@
       in rec {
         packages = rec {
           prometheus-mdns-sd = pkgs.prometheus-mdns-sd;
+          docker = pkgs.callPackage ./docker.nix {};
           default = prometheus-mdns-sd;
         };
 
