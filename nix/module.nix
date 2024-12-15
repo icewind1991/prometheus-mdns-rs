@@ -1,12 +1,12 @@
-{
-  config,
-  lib,
-  pkgs,
-  ...
+{ config
+, lib
+, pkgs
+, ...
 }:
 with lib; let
   cfg = config.services.prometheus-mdns-sd;
-in {
+in
+{
   options.services.prometheus-mdns-sd = {
     enable = mkEnableOption "WiFi prometheus exporter";
 
@@ -25,7 +25,7 @@ in {
 
   config = mkIf cfg.enable {
     systemd.services."prometheus-mdns-sd" = {
-      wantedBy = ["multi-user.target"];
+      wantedBy = [ "multi-user.target" ];
 
       serviceConfig = {
         ExecStart = "${cfg.package}/bin/prometheus-mdns-sd-rs ${cfg.target}";
@@ -50,9 +50,9 @@ in {
         RestrictAddressFamilies = "AF_INET";
         RestrictRealtime = true;
         ProtectProc = "invisible";
-        SystemCallFilter = ["@system-service" "~@resources" "~@privileged"];
+        SystemCallFilter = [ "@system-service" "~@resources" "~@privileged" ];
         IPAddressDeny = "any";
-        IPAddressAllow = ["multicast" "192.168.0.0/16"];
+        IPAddressAllow = [ "multicast" "192.168.0.0/16" ];
         PrivateUsers = true;
         ProcSubset = "pid";
         RuntimeDirectory = "prometheus-mdns-sd";

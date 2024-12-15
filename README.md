@@ -1,6 +1,6 @@
 # mDNS service discovery for Prometheus
 
-Discovers mDNS/ZeroConf/Bonjour service announcements under _prometheus-http._tcp for ad-hoc discovery of devices on LAN networks.
+Discovers mDNS/ZeroConf/Bonjour service announcements under \_prometheus-http.\_tcp for ad-hoc discovery of devices on LAN networks.
 
 ## Usage
 
@@ -19,9 +19,9 @@ Configure prometheus to use the output file
   metrics_path: /metrics
   scheme: http
   file_sd_configs:
-  - files:
-    - /etc/prometheus/mdns-sd.json
-    refresh_interval: 5m
+    - files:
+        - /etc/prometheus/mdns-sd.json
+      refresh_interval: 5m
 ```
 
 ## Advertising services
@@ -38,4 +38,4 @@ MDNS.addServiceTxt("prometheus-http", "tcp", "name", prometheus_name);
 
 ## Credits
 
-Wholly inspired by [prometheus-mdns-sd](https://github.com/msiebuhr/prometheus-mdns-sd) by Morten Siebuhr  
+Wholly inspired by [prometheus-mdns-sd](https://github.com/msiebuhr/prometheus-mdns-sd) by Morten Siebuhr
