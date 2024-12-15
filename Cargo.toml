@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/icewind1991/prometheus-mdns-rs"
 keywords = ["mdns", "prometheus"]
+rust-version = "1.63.0"
 
 [dependencies]
 mdns = "3.0.0"
