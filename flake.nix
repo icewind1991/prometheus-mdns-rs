@@ -18,7 +18,7 @@
         , lib
         , ...
         }: {
-          imports = [ ./module.nix ];
+          imports = [ ./nix/module.nix ];
           config = lib.mkIf config.services.prometheus-mdns-sd.enable {
             nixpkgs.overlays = [ outputs.overlays.default ];
             services.prometheus-mdns-sd.package = lib.mkDefault pkgs.prometheus-mdns-sd;
