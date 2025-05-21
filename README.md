@@ -1,3 +1,5 @@
+# Moved to https://codeberg.org/icewind/prometheus-mdns-rs
+
 # mDNS service discovery for Prometheus
 
 Discovers mDNS/ZeroConf/Bonjour service announcements under \_prometheus-http.\_tcp for ad-hoc discovery of devices on LAN networks.
